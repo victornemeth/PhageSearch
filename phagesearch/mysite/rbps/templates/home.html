@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Phage Protein Search Engine{% endblock %}
+{% block content %}
+
+<style>
+        @media (max-width: 768px) {
+        /* Hide less important table columns on small screens */
+        .hide-on-mobile {
+            display: none;
+        }
+        .table thead th, .table tbody td {
+            font-size: 12px; /* Smaller font size */
+            padding: 5px; /* Reduced padding */
+        }
+
+        /* Make table scrollable on small screens */
+        .table-responsive-mobile {
+            overflow-x: auto;
+            display: block;
+        }
+    }
+    .btn-primary, .btn-secondary {
+        background-color: #007bff; /* A nice shade of Bootstrap blue */
+        border-color: #007bff; /* Ensure the border is the same color */
+    }
+
+    .btn-primary:hover, .btn-secondary:hover {
+        background-color: #0056b3; /* A darker shade of blue for hover effect */
+        border-color: #0056b3;
+    }
+
+    .table thead th {
+        background-color: #e3f2fd; /* A light blue background for the table header */
+        color: #212529; /* Keeping the text color mostly black for contrast */
+    }
+
+    a, .page-link {
+        color: #007bff; /* Standard Bootstrap blue for links */
+    }
+
+    a:hover, .page-link:hover {
+        color: #0056b3; /* A darker shade for hover effect */
+        text-decoration: underline; /* Adds underline on hover for better user experience */
+    }
+    .button-container {
+    display: flex;
+    justify-content: space-between; /* This will push the buttons to the far edges */
+    align-items: center; /* This will vertically center the buttons if they are of different heights */
+    }
+    .check-container {
+        display: flex;
+        justify-content: flex-end; /* This will push the container to the far right */
+        align-items: center; /* This will vertically center the elements if they are of different heights */
+    }
+
+</style>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-12">
+            <form method="get" class="mb-4">
+                <div class="form-row align-items-center">
+                    <div class="col-auto">
+                        <input type="text" name="product" class="form-control mb-2" placeholder="Search by product..." value="{{ request.GET.product|default:'' }}">
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" id="search-by-host" name="host" class="form-control mb-2" placeholder="Search by host..." value="{{ request.GET.host|default:'' }}">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary mb-2">Search</button>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-info mb-2" onclick="toggleMoreOptions()">More Options</button>
+                    </div>
+                </div>
+                <div id="more-options" style="display:none;">
+                    <div class="form-row align-items-center">
+                        <div class="col-auto">
+                            <input type="text" name="virus" class="form-control mb-2" placeholder="Search by virus..." value="{{ request.GET.virus|default:'' }}">
+
+                        </div>
+                        <div class="col-auto">
+                            <input type="text" name="notes" class="form-control mb-2" placeholder="Search notes..." value="{{ request.GET.notes|default:'' }}">
+
+                        </div>
+                        <div class="col-auto">
+                            <select name="source" class="custom-select mb-2">
+                                <option value="">Select Source</option>
+                                <option value="RefSeq" {% if request.GET.source == "RefSeq" %}selected{% endif %}>RefSeq</option>
+                                <option value="Genbank" {% if request.GET.source == "Genbank" %}selected{% endif %}>Genbank</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <select name="structure" class="custom-select mb-2">
+                                <option value="">Select PDB</option>
+                                <option value="ALL" {% if request.GET.structure == "ALL" %}selected{% endif %}>All PDB</option>
+                                <option value="Uniprot" {% if request.GET.structure == "Uniprot" %}selected{% endif %}>Uniprot</option>
+                                <option value="No" {% if request.GET.structure == "No" %}selected{% endif %}>No PDB</option>
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="form-row align-items-center">
+                    <div class="col-auto">
+                        <label class="mr-2">Rows per page:</label>
+                    </div>
+                    <div class="col-auto">
+                        <select name="rows" class="custom-select" onchange="this.form.submit()">
+                            <option value="10" {% if request.GET.rows == "10" %}selected{% endif %}>10</option>
+                            <option value="100" {% if request.GET.rows == "100" %}selected{% endif %}>100</option>
+                            <option value="1000" {% if request.GET.rows == "1000" %}selected{% endif %}>1000</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+            <div class="button-container">
+                <a href="{% url 'download_sequences' %}?product={{ request.GET.product|default:'' }}&host={{ request.GET.host|default:'' }}" class="btn btn-secondary mt-3">Download Sequences (FASTA)</a>
+                <a href="{% url 'download_structures' %}?product={{ product_query }}&host={{ host_query }}"
+                id="downloadLink" class="btn btn-secondary mt-3">
+                Download Structures (ZIP)
+                </a>
+            </div>
+            <p>{{ total_count }} total entries found.</p>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Natural Host</th>
+                        <th class="hide-on-mobile">Lab Host</th>
+                        <th class="hide-on-mobile">Virus</th>
+                        <th class="hide-on-mobile">Source</th>
+
+                        <th>Product</th>
+                        <th class="hide-on-mobile">Protein ID</th>
+                        <th>Protein details</th>
+                        <th>PDB</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for protein in proteins %}
+                    <tr>
+                        <td>{{ protein.species_primary_key.natural_host|truncatechars:22 }}</td>
+                        <td class="hide-on-mobile">{{ protein.species_primary_key.lab_host|truncatechars:22 }}</td>
+                        <td class="hide-on-mobile">{{ protein.species_primary_key.virus_name|truncatechars:20 }}</td>
+                        <td class="hide-on-mobile">{{ protein.source|truncatechars:20 }}</td>
+
+                        <td>{{ protein.product|truncatechars:40 }}</td>
+                        <td class="hide-on-mobile">{{ protein.protein_id|truncatechars:10 }}</td>
+                        <td>{% if protein.sequences_set.first %}<a href="{% url 'sequence_detail' sequence_pk=protein.sequences_set.first.pk %}" class="text-primary">View details</a>{% else %}No sequence found{% endif %}</td>
+                        <td>{% if protein.structures_set.first %}✅{% elif  protein.sequences_set.first.seq|length  < 400 %}☑️{% else %}❌{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <nav aria-label="Page navigation">
+              <ul class="pagination">
+                  {% if proteins.has_previous %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ proteins.previous_page_number }}&product={{ request.GET.product|default:'' }}&host={{ request.GET.host|default:'' }}&virus={{ request.GET.virus|default:'' }}&notes={{ request.GET.notes|default:'' }}&source={{ request.GET.source|default:'' }}&structure={{ request.GET.structure|default:'' }}&rows={{ request.GET.rows|default:'10' }}">
+                        Previous
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if proteins.has_next %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ proteins.next_page_number }}&product={{ request.GET.product|default:'' }}&host={{ request.GET.host|default:'' }}&virus={{ request.GET.virus|default:'' }}&notes={{ request.GET.notes|default:'' }}&source={{ request.GET.source|default:'' }}&structure={{ request.GET.structure|default:'' }}&rows={{ request.GET.rows|default:'10' }}">
+                        Next
+                    </a>
+                  </li>
+                  {% else %}
+                  <!-- Display a message when the last page is reached -->
+                  <li class="page-item disabled"><span class="page-link">You've reached the last entry</span></li>
+                  {% endif %}
+              </ul>
+          </nav>
+
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('search-by-host');
+    
+        searchInput.addEventListener('input', function() {
+            const query = searchInput.value;
+            if(query.length < 2) { // Optional: start searching from 2 characters
+                return;
+            }
+    
+            fetch(`/host-suggestions/?query=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateAutocompleteList(data);
+                });
+        });
+    
+        function updateAutocompleteList(hosts) {
+            let dataList = document.getElementById('host-options');
+            if (!dataList) {
+                dataList = document.createElement('datalist');
+                dataList.id = 'host-options';
+                document.body.appendChild(dataList);
+                searchInput.setAttribute('list', 'host-options');
+            }
+    
+            // Clear previous options
+            dataList.innerHTML = '';
+    
+            // Insert new options
+            hosts.forEach(host => {
+                const option = document.createElement('option');
+                option.value = host;
+                dataList.appendChild(option);
+            });
+        }
+    });
+
+
+    function toggleMoreOptions() {
+        var moreOptions = document.getElementById('more-options');
+        if (moreOptions.style.display === 'none') {
+            moreOptions.style.display = 'block';
+        } else {
+            moreOptions.style.display = 'none';
+        }
+    }
+
+
+    </script>
+    
+{% endblock %}
+

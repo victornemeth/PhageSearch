@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block header %}
+<meta charset="UTF-8">
+<title>Overview of Protein Counts</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Loading Chart.js library -->
+<style>
+    body {
+        font-family: Arial, sans-serif; /* Sets the font for a more professional look */
+        background-color: #f4f4f4; /* Light grey background for a modern look */
+        color: #333; /* Dark grey text for better readability */
+    }
+    .chart-container {
+        width: 100%;
+        max-width: 600px;
+        height: auto;
+        aspect-ratio: 1 / 1;
+        margin: 30px auto; /* Centers the chart and adds space around it */
+        box-shadow: 0 8px 16px rgba(0,0,0,0.15); /* Adds subtle shadow for depth */
+        background-color: #fff; /* White background for the charts */
+        border-radius: 8px; /* Rounds the corners of the chart containers */
+        padding: 20px; /* Adds padding inside the containers */
+    }
+    canvas {
+        width: 100% !important;
+        height: auto !important;
+        display: block; /* Fixes alignment issues in some browsers */
+    }
+    @media (min-width: 768px) {
+        .chart-container {
+            width: 600px; /* Fixed width for larger screens */
+            height: 600px; /* Fixed height for larger screens */
+        }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="chart-container">
+    <canvas id="genusChart"></canvas>
+</div>
+<div class="chart-container">
+    <canvas id="speciesChart" style="display:none;"></canvas>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var genusData = JSON.parse('{{ genus_protein_count|safe }}');
+        var speciesData = JSON.parse('{{ species_protein_count|safe }}');
+
+        var genusCtx = document.getElementById('genusChart').getContext('2d');
+        var speciesCtx = document.getElementById('speciesChart').getContext('2d');
+        var speciesChart;
+
+        function getRandomColor() {
+            var letters = '0123456789ABCDEF';
+            var color = '#';
+            for (var i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        function getColors(n) {
+            var colors = [];
+            for (var i = 0; i < n; i++) {
+                colors.push(getRandomColor());
+            }
+            return colors;
+        }
+
+// Create the Genus Pie Chart
+var genusChart = new Chart(genusCtx, {
+    type: 'pie',
+    data: {
+        labels: Object.keys(genusData),
+        datasets: [{
+            label: 'Protein Count by Genus',
+            data: Object.values(genusData),
+            backgroundColor: getColors(Object.keys(genusData).length),
+            borderColor: '#ffffff',
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false // This line hides the legend
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(tooltipItem) {
+                        return tooltipItem.label + ': ' + tooltipItem.raw;
+                    }
+                }
+            }
+        }
+    }
+});
+
+        function updateSpeciesChart(genus) {
+            var filteredSpecies = {};
+            Object.keys(speciesData).forEach(function (key) {
+                if (key.startsWith(genus)) {
+                    filteredSpecies[key] = speciesData[key];
+                }
+            });
+
+            if (speciesChart) {
+                speciesChart.destroy();
+            }
+
+            speciesChart = new Chart(speciesCtx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(filteredSpecies),
+                    datasets: [{
+                        label: 'Protein Count by Species for ' + genus,
+                        data: Object.values(filteredSpecies),
+                        backgroundColor: getColors(Object.keys(filteredSpecies).length),
+                        borderColor: '#ffffff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    return tooltipItem.label + ': ' + tooltipItem.raw;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            document.getElementById('speciesChart').style.display = 'block';
+        }
+
+        genusChart.canvas.onclick = function(event) {
+            var activePoints = genusChart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+            if (activePoints.length > 0) {
+                var clickedElementIndex = activePoints[0].index;
+                var label = genusChart.data.labels[clickedElementIndex];
+                updateSpeciesChart(label);
+            }
+        };
+    });
+</script>
+{% endblock %}

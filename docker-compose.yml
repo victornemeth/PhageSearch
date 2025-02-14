@@ -1,0 +1,44 @@
+services:
+  phagesearch:
+    container_name: phagesearch
+    volumes:
+      - /mnt/phagesearch/static:/static
+    env_file:
+      - .env
+    build:
+      context: ./phagesearch
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+    restart: always
+    networks:
+      - all_default
+      - sql_bridge
+
+  mysql:
+    container_name: mysql_phagesearch
+    image: mysql:8.3.0  # or use mysql:latest for the latest version
+    volumes:
+      - /mnt/mysql_phagesearch/mysql_data:/var/lib/mysql
+      - /mnt/mysql_phagesearch/entrypoint:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_ROOT_PASSWORD: 
+      MYSQL_DATABASE: rbps_db
+    command: --wait_timeout=259200 --interactive_timeout=259200
+    ports:
+      - "3306:3306"  # Optional: Expose port if you need to access the database from outside Docker
+    restart: always
+    networks:
+      - sql_bridge
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  all_default:
+    external: true
+  sql_bridge:
+    driver: bridge
+

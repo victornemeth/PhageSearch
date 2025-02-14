@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Protein detail{% endblock %}
+{% block header %}
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+
+<style>
+    /* Style for larger screens */
+    #pdbViewer {
+        height: 400px; /* Default height */
+        width: 600px; /* Default width */
+        position: relative;
+    }
+
+    /* Adjustments for smaller screens */
+    @media (max-width: 768px) {
+        #pdbViewer {
+            height: 200; /* Default height */
+            width: 200px; /* Default width */
+            position: relative; /* Make the viewer take up 100% of the container's width */        }
+    }
+</style>
+{% endblock %}
+{% block content %}
+
+    <div class="container mt-5">
+        <h1 class="mb-4">Sequence Detail</h1>
+        <div style="word-wrap: break-word;">
+            <p><strong>Sequence:</strong> {{ sequence.seq }}</p>
+        </div>
+
+        <h2 class="mt-5 mb-3">Associated Protein Details</h2>
+        <table class="table">
+            <tbody>
+                <tr>
+                    <th>Product:</th>
+                    <td>{{ protein.product }}</td>
+                </tr>
+                <tr>
+                    <th>Virus name:</th>
+                    <td>{{ species.virus_name }}</td>
+                </tr>
+                <tr>
+                    <th>Natural Host:</th>
+                    <td>{{ species.natural_host }}</td>
+                </tr>
+                <tr>
+                    <th>Lab host:</th>
+                    <td>{{ species.lab_host }}</td>
+                </tr>
+                <tr>
+                    <th>ID:</th>
+                    <td>{{ protein.id }}</td>
+                </tr>
+                <tr>
+                    <th>Source:</th>
+                    <td>{{ protein.source }}</td>
+                </tr>
+                <tr>
+                    <th>Sequence Region:</th>
+                    <td>{{ protein.seq_region }}</td>
+                </tr>
+                <tr>
+                    <th>CDS Start:</th>
+                    <td>{{ protein.cds_start }}</td>
+                </tr>
+                <tr>
+                    <th>CDS End:</th>
+                    <td>{{ protein.cds_end }}</td>
+                </tr>
+                <tr>
+                    <th>Dbxref:</th>
+                    <td>{{ protein.dbxref }}</td>
+                </tr>
+                <tr>
+                    <th>Note:</th>
+                    <td>{{ protein.note }}</td>
+                </tr>
+                <tr>
+                    <th>Protein ID:</th>
+                    <td>{{ protein.protein_id }}</td>
+                </tr>
+                <tr>
+                    <th>Sequence length:</th>
+                    <td>{{ sequence_length }}</td>
+                </tr>
+                <tr>
+                    <th>Dbxref Host:</th>
+                    <td>{{ species.dbxref }}</td>
+                </tr>
+                <!-- Add more rows for additional details as needed -->
+                <tr>
+                    <th>3D structure:</th>
+                    <td>
+                        {{structurerror}}
+                        {% if pdb_string %}
+                        <p>{{ metadata }}</p>
+                                    <div id="pdbViewer"></div>
+
+                            <textarea id="pdbData" style="display: none">
+                                {{ pdb_string|safe }}
+                            </textarea>
+                            
+                            <script>
+                            document.addEventListener("DOMContentLoaded", function() {
+                                let pdbData = document.getElementById("pdbData").value;
+                                let element = document.getElementById("pdbViewer");
+                                let config = {
+                                    defaultcolors: $3Dmol.elementColors.rasmol,
+                                };  // Your configuration
+                                let viewer = $3Dmol.createViewer(element, config);
+                            
+                                viewer.addModel(pdbData, "pdb");
+                                viewer.setStyle({}, {cartoon: {color: 'spectrum'}});
+                                viewer.zoomTo();
+                                viewer.render();
+                                // Add spin to the model around the Y-axis
+                                viewer.spin('y', 0.5); // The 'y' specifies the Y-axis, and 0.5 is the speed. Adjust as needed
+                            });
+                            </script>
+                            {% if not esmfold %}
+                            <a  class="btn btn-secondary " href="{% url 'esmfold_prediction' sequence.pk %}">Use ESMFold</a>
+                            {% endif %}
+
+                            {% if b_value %}    
+                            <h2>plDDT</h2>
+                            <p>plDDT is a per-residue estimate of the confidence in prediction on a scale from 0-100.</p>
+                            <p><strong>plDDT: </strong>{{ b_value }}</p>
+                            {% endif %}
+                            {% endif %}
+
+                            
+                    </td>
+                </tr>
+            </tbody>
+
+            </table>
+            {% if structurerror == "" %}
+            {% if esmfold %}
+            <a  class="btn btn-secondary " href="{% url 'download_pdb_esm' sequence.primary_key %}">Download PDB File</a>
+            <p></p>
+            {% else %}
+            <a  class="btn btn-secondary " href="{% url 'download_pdb' sequence.primary_key %}">Download PDB File</a>
+            <p></p>
+            {% endif %}
+            {% endif %}
+        <button onclick="history.back();" class="btn btn-primary mt-3">Back to Search Results</button>
+        <p></p>
+    </div>
+
+    
+{% endblock %}

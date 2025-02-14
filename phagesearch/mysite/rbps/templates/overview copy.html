@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block header %}
+<meta charset="UTF-8">
+<title>Protein Count by Genus</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    #genusChartContainer {
+        width: 100%; /* Adjust the width as needed */
+        max-width: 800px; /* Ensures the chart is not overly large */
+        margin: auto; /* Center the canvas container */
+        position: relative;
+    }
+    #genusChart {
+        display: block;
+        width: 100% !important;
+        height: auto !important; /* Let height scale automatically */
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-12">
+            <h2>Overview</h2>
+            <div id="genusChartContainer">
+                <canvas id="genusChart"></canvas>
+            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    var genus_protein_count = JSON.parse('{{ genus_protein_count|escapejs }}');
+                    var labels = Object.keys(genus_protein_count);
+                    var data = Object.values(genus_protein_count);
+                    var backgroundColors = labels.map(function() {
+                        return 'rgba(' + Math.floor(Math.random() * 255) + ',' +
+                                          Math.floor(Math.random() * 255) + ',' +
+                                          Math.floor(Math.random() * 255) + ', 0.7)';
+                    });
+
+                    var ctx = document.getElementById('genusChart').getContext('2d');
+                    var myChart = new Chart(ctx, {
+                        type: 'pie',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: data,
+                                backgroundColor: backgroundColors,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        boxWidth: 20,
+                                        padding: 20
+                                    }
+                                },
+                                tooltip: {
+                                    enabled: true,
+                                    callbacks: {
+                                        label: function(tooltipItem) {
+                                            var label = tooltipItem.label;
+                                            var value = tooltipItem.parsed;
+                                            return `${label}: ${value}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+            </script>
+        </div>
+    </div>
+</div>
+{% endblock %}

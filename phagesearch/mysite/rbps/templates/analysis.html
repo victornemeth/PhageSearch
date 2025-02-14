@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Protein Analysis{% endblock %}
+{% block header %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Use the full version of jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h2>Analyze Protein Entries</h2>
+            <form id="analysis-form" method="get" class="mb-4">
+                <div class="input-group mb-3">
+                    <input type="text" id="product-input" name="product" class="form-control" placeholder="Search by product...">
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-outline-secondary">Analyze</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <div style="overflow-x: auto; width: 100%;">
+                <canvas id="hostChart" style="width: 2000px; height: 400px;"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <h3>
+                <div class="d-inline">
+                    Counts
+                    <button id="scroll-to-bottom-btn" class="btn" style="color: gray;"><i class="fas fa-chevron-down"></i></button>
+                </div>
+            </h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Bacteria</th>
+                        <th scope="col">Count</th>
+                    </tr>
+                </thead>
+                <tbody id="counts-table-body">
+                    <!-- Table body will be populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p></p>
+    <button id="download-csv-btn" class="btn btn-primary">Download CSV</button>
+    <p></p>
+</div>
+
+
+<script>
+    $(document).ready(function() {
+        var chart; // Declare chart globally to update it with new data on form submission
+    
+        // Initialize an empty chart
+        const ctx = document.getElementById('hostChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Number of Entries',
+                    data: [],
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                    }
+                },
+                maintainAspectRatio: false,
+            }
+        });
+    
+        // Handle form submission
+        $("#analysis-form").submit(function(e) {
+            e.preventDefault(); // Prevent default form submission
+            var product = $("#product-input").val(); // Get the product from the input field
+    
+            // AJAX request to fetch data
+            $.get("{% url 'protein_analysis' %}", { product: product }, function(data) {
+                console.log("Received JSON data:", data); // Log the received JSON data
+    
+                // Remove empty bacteria names
+                data = data.filter(item => item.host !== '');
+
+                // Clear previous data
+                chart.data.labels = [];
+                chart.data.datasets[0].data = [];
+    
+                // Populate chart data
+                for (var i = 0; i < data.length; i++) {
+                    chart.data.labels.push(data[i].host);
+                    chart.data.datasets[0].data.push(data[i].count);
+                }
+
+                // Update chart
+                chart.update();
+
+                // Populate table with counts
+                populateTable(data);
+            });
+        });
+
+        // Function to populate the table with counts
+        function populateTable(data) {
+            var tableBody = $("#counts-table-body");
+            tableBody.empty(); // Clear existing data
+
+            // Calculate total count
+            var totalCount = 0;
+            var uniqueBacteria = new Set();
+
+            // Append total row
+            var totalRow = $("<tr>");
+            totalRow.append($("<td>").text("Total"));
+            totalRow.append($("<td>").text(totalCount));
+            tableBody.append(totalRow);
+
+            // Loop through the data and append rows to the table
+            data.forEach(function(item) {
+                if (item.host !== '') {
+                    if (!uniqueBacteria.has(item.host)) {
+                        var row = $("<tr>");
+                        row.append($("<td>").text(item.host));
+                        row.append($("<td>").text(item.count));
+                        tableBody.append(row);
+                        uniqueBacteria.add(item.host);
+                    }
+                    totalCount += item.count;
+                }
+            });
+
+            // Update the total row with the calculated total count
+            totalRow.find("td:last").text(totalCount);
+
+            // Update chart: if there are missing bacteria, ensure they are included with zero counts
+            const allBacteria = Array.from(uniqueBacteria);
+            allBacteria.forEach(bacteria => {
+                if (!chart.data.labels.includes(bacteria)) {
+                    chart.data.labels.push(bacteria);
+                    chart.data.datasets[0].data.push(0); // Add zero count for missing bacteria
+                }
+            });
+
+            // Update chart
+            chart.update();
+        }
+
+        // Function to scroll to the bottom of the page when the button is clicked
+        $("#scroll-to-bottom-btn").click(function() {
+            $("html, body").animate({ scrollTop: $(document).height() }, "slow");
+        });
+
+        // Function to download CSV file
+        $("#download-csv-btn").click(function() {
+            var csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Bacteria,Count\n"; // CSV header
+
+            // Loop through table rows and append data to CSV content
+            $("#counts-table-body tr").each(function() {
+                var bacteria = $(this).find("td:first").text().trim();
+                var count = $(this).find("td:last").text().trim();
+                csvContent += `${bacteria},${count}\n`;
+            });
+
+            // Create a temporary link element to trigger the download
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "counts.csv");
+            document.body.appendChild(link);
+
+            // Trigger the download
+            link.click();
+        });
+
+    });
+</script>
+
+{% endblock %}
